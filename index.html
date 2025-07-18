@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FalconWMS Interactive Inbound Operations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Tailwind Stone & Amber) -->
+    <!-- Application Structure Plan: The SPA visualizes the Inbound Operations module as an interactive process flow, rather than the report's linear list. The structure is: 1. Header & Intro. 2. A central two-column layout featuring an interactive "Inbound Process Flow" diagram on the left and a "Details Panel" on the right. This allows users to see the entire process at a glance and explore specific steps. 3. A "Receiving Methods Efficiency" chart to visually compare ASN, PO, and Blind receipts. This structure was chosen because it transforms a static document into an active learning experience, helping users understand the sequence and context of each step in the inbound chain. -->
+    <!-- Visualization & Content Choices: Report Info: 11 Inbound Features -> Goal: Organize & Explore -> Viz: Interactive HTML/CSS Process Flow Diagram -> Interaction: Click node to update detail panel -> Justification: Visually represents the workflow, showing how steps connect, which is more intuitive than a list. Library: HTML/CSS/JS. || Report Info: Details of each feature -> Goal: Inform on demand -> Viz: Dynamic Content Panel -> Interaction: Content updates on click -> Justification: Provides deep information without cluttering the main view. Library: JS DOM manipulation. || Report Info: ASN/PO/Blind Receipts -> Goal: Compare -> Viz: Donut Chart -> Interaction: Hover tooltips -> Justification: Translates conceptual differences in efficiency into a clear, comparative visual. Library: Chart.js. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fafaf9; /* stone-50 */
+            color: #292524; /* stone-800 */
+        }
+        .flow-node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .flow-node.active, .flow-node:hover {
+            background-color: #f59e0b; /* amber-500 */
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .flow-connector {
+            position: absolute;
+            background-color: #d6d3d1; /* stone-300 */
+            z-index: -1;
+        }
+        .details-panel {
+            transition: all 0.5s ease-in-out;
+            min-height: 500px;
+        }
+        .fade-in {
+            animation: fadeInAnimation 0.5s ease-in-out forwards;
+        }
+        @keyframes fadeInAnimation {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container { height: 400px; max-height: 50vh; }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-stone-800">
+                <span class="text-amber-600">Falcon</span>WMS Inbound Operations
+            </h1>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-12">
+        <section id="intro" class="text-center mb-16">
+            <h2 class="text-4xl md:text-5xl font-bold mb-4">Mastering the Inbound Flow</h2>
+            <p class="text-lg text-stone-600 max-w-3xl mx-auto">
+                Inbound operations are the critical first step in achieving warehouse excellence. FalconWMS streamlines every action from vehicle arrival to final putaway, ensuring inventory is accurate from the moment it enters your facility. Explore the interactive flow below to see how each feature contributes to a seamless process.
+            </p>
+        </section>
+
+        <section id="process-explorer" class="mb-20">
+            <div class="flex flex-col lg:flex-row gap-8">
+                <div class="w-full lg:w-5/12 xl:w-4/12">
+                    <div id="flow-diagram" class="bg-white p-6 rounded-lg shadow-lg relative h-full">
+                        <h3 class="text-2xl font-bold text-center mb-6">Inbound Process Flow</h3>
+                        <div class="space-y-4 relative" data-flow-id="gateEntry">
+                            <div class="flow-node bg-stone-100 p-4 rounded-lg shadow text-center" data-id="gateEntry">Digital Gate Entry</div>
+                            <div class="flow-connector" style="height: 20px; width: 4px; left: 50%; transform: translateX(-2px); top: 100%;"></div>
+                        </div>
+                        <div class="space-y-4 relative mt-9">
+                            <div class="flow-node bg-stone-100 p-4 rounded-lg shadow text-center" data-id="dockManagement">Dock Sequencing & Assignment</div>
+                            <div class="flow-connector" style="height: 20px; width: 4px; left: 50%; transform: translateX(-2px); top: 100%;"></div>
+                        </div>
+                         <div class="space-y-4 relative mt-9">
+                            <div class="flow-node bg-stone-100 p-4 rounded-lg shadow text-center" data-id="receipts">PO/ASN/Invoice Receipts</div>
+                            <div class="flow-connector" style="height: 20px; width: 4px; left: 50%; transform: translateX(-2px); top: 100%;"></div>
+                        </div>
+                        <div class="space-y-4 relative mt-9">
+                            <div class="flow-node bg-stone-100 p-4 rounded-lg shadow text-center" data-id="unloading">Digital Unloading & Palletization</div>
+                            <div class="flow-connector" style="height: 20px; width: 4px; left: 50%; transform: translateX(-2px); top: 100%;"></div>
+                        </div>
+                        <div class="space-y-4 relative mt-9">
+                            <div class="flow-node bg-stone-100 p-4 rounded-lg shadow text-center" data-id="qualityControl">Inward Quality Control (IQC)</div>
+                             <div class="flow-connector" style="height: 20px; width: 4px; left: 50%; transform: translateX(-2px); top: 100%;"></div>
+                        </div>
+                         <div class="space-y-4 relative mt-9">
+                            <div class="flow-node bg-stone-100 p-4 rounded-lg shadow text-center" data-id="putaway">System Suggested Putaway</div>
+                            <div class="flow-connector" style="height: 20px; width: 4px; left: 50%; transform: translateX(-2px); top: 100%;"></div>
+                        </div>
+                         <div class="space-y-4 relative mt-9">
+                            <div class="flow-node bg-stone-100 p-4 rounded-lg shadow text-center" data-id="grn">GRN Confirmation</div>
+                        </div>
+                        
+                        <div class="mt-8 pt-4 border-t-2 border-dashed border-stone-200">
+                             <div class="flow-node bg-sky-100 p-4 rounded-lg shadow text-center text-sky-800" data-id="crossdocking">Special Process: Cross-docking</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="details-panel-container" class="w-full lg:w-7/12 xl:w-8/12">
+                    <div id="details-panel" class="details-panel bg-white p-8 rounded-lg shadow-lg sticky top-24">
+                        <div id="initial-content" class="text-center text-stone-500 flex flex-col items-center justify-center h-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" /></svg>
+                            <h3 class="text-2xl font-semibold">Select a Process Step</h3>
+                            <p class="mt-2">Click a step in the flow diagram to see its details.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="efficiency-comparison" class="mb-16">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold">Receiving Methods Efficiency</h2>
+                <p class="text-lg text-stone-600 max-w-3xl mx-auto mt-4">
+                    Not all receiving methods are equal. An Advance Shipment Notification (ASN) provides the most data upfront, enabling the fastest and most accurate receiving. This chart shows the relative efficiency and data visibility of each primary method.
+                </p>
+            </div>
+            <div class="bg-white p-8 rounded-lg shadow-lg">
+                <div class="chart-container">
+                    <canvas id="efficiencyChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-stone-800 text-white py-6">
+        <div class="container mx-auto text-center">
+            <p>&copy; 2025 FalconWMS Interactive Training. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+    const inboundData = {
+        gateEntry: {
+            title: 'Digital Gate Entry',
+            concept: 'Automates the logging of vehicles entering and exiting the premises, improving security, tracking, and providing a complete audit trail for all logistics movements.',
+            details: 'Captures vehicle/driver details, links to appointments, timestamps entry/exit, and digitizes security checks like seal verification.',
+            example: 'A truck arrives. A guard uses a tablet to log the truck number and links it to PO #1234. The system grants entry and notifies the receiving dock team of the vehicle\'s arrival in real-time.'
+        },
+        dockManagement: {
+            title: 'Dock Sequencing/Assignment',
+            concept: 'Optimizes the use of receiving docks by systematically scheduling, assigning, and releasing trucks to minimize congestion and waiting times.',
+            details: 'Features dock scheduling, dynamic assignment based on dock capabilities, queue management for waiting vehicles, and automated release notifications.',
+            example: 'Three trucks are scheduled. FalconWMS assigns Truck A (pallets) to Dock 1 and Truck B (loose cartons) to Dock 3. Truck C is queued. When Dock 1 is free, the system automatically assigns Truck C.'
+        },
+        receipts: {
+            title: 'PO/ASN/Invoice Based Receipts',
+            concept: 'Enables the accurate receiving of goods against pre-existing documents (Purchase Orders, Advance Shipment Notifications, Invoices), setting clear expectations for what is arriving.',
+            details: 'PO-Based validates against order lines. Invoice-Based validates against the supplier invoice. ASN-Based is most efficient, using pre-sent shipment data for faster validation.',
+            example: 'A clerk scans an ASN barcode from an arriving shipment. FalconWMS instantly displays the expected items, quantities, and batch numbers, allowing for rapid-fire validation as cartons are unloaded.'
+        },
+        unloading: {
+            title: 'Digital Unloading & Palletization',
+            concept: 'A structured, paperless process to accurately record goods as they are unloaded and consolidate them into standardized handling units (cartons/pallets).',
+            details: 'Involves item-level scanning, digital quantity entry, immediate damage/discrepancy reporting, and system-suggested pallet/carton configurations with unique label generation (License Plate - LP).',
+            example: 'During unloading, a clerk scans each item. If a carton is damaged, they log it on their handheld, attaching a photo. The system then directs them to pack 50 items per carton, generating a unique LP for each.'
+        },
+        qualityControl: {
+            title: 'Inward Quality Control (IQC)',
+            concept: 'A systematic process of inspecting incoming goods to ensure they meet quality standards before they are accepted into sellable inventory.',
+            details: 'IQC is triggered by rules (supplier, SKU). Items are routed to a dedicated QC area for inspection against defined parameters. Results determine disposition (accept, reject, hold).',
+            example: 'A shipment of high-value electronics arrives. The system automatically flags 10% for IQC. A technician inspects them and records the pass/fail results in FalconWMS. Passed items are released for putaway.'
+        },
+        putaway: {
+            title: 'System Suggested Putaway',
+            concept: 'After receipt, FalconWMS intelligently suggests the optimal storage bin for each item based on predefined rules, item attributes, and real-time warehouse occupancy.',
+            details: 'Rules can be based on SKU velocity (fast/slow movers), size, weight, storage compatibility, or zone. The system provides directed guidance to the operator for the most efficient placement.',
+            example: 'A pallet of a "Hot SKU" (fast-moving item) is received. FalconWMS suggests a bin in the forward pick area near the shipping dock to minimize travel time for future orders.'
+        },
+        grn: {
+            title: 'GRN Confirmation',
+            concept: 'The final step in receiving, which formally acknowledges goods are received and are now part of the warehouse inventory. It generates a Goods Receipt Note (GRN).',
+            details: 'Generates a GRN document, sends a real-time update to the ERP system to update financial and inventory records, and creates a final audit trail for the transaction.',
+            example: 'After a PO is fully received and put away, a supervisor confirms the GRN in FalconWMS. This action updates the inventory count in the ERP and closes the PO.'
+        },
+        crossdocking: {
+            title: 'Cross-docking',
+            concept: 'A logistics technique where incoming goods are transferred directly to outbound shipments with minimal to no storage, drastically reducing handling and storage costs.',
+            details: 'Requires pre-allocation of incoming stock to outbound orders. Goods are moved directly from the receiving dock to a shipping dock or staging area.',
+            example: 'A truck of fresh produce arrives. FalconWMS identifies that these items are for an awaiting sales order. It directs the goods straight to the outbound dock for immediate loading, bypassing storage.'
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const flowDiagram = document.getElementById('flow-diagram');
+        const detailsPanel = document.getElementById('details-panel');
+        
+        flowDiagram.addEventListener('click', (e) => {
+            const node = e.target.closest('.flow-node');
+            if (!node) return;
+
+            const moduleId = node.dataset.id;
+            const data = inboundData[moduleId];
+
+            if (data) {
+                document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('active'));
+                node.classList.add('active');
+
+                detailsPanel.innerHTML = `
+                    <div class="fade-in">
+                        <h3 class="text-2xl font-bold text-amber-600 mb-3">${data.title}</h3>
+                        <p class="text-stone-700 font-semibold mb-4">${data.concept}</p>
+                        <div class="mb-6">
+                            <h4 class="text-lg font-semibold mb-2">How it Works:</h4>
+                            <p class="text-stone-600">${data.details}</p>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-semibold mb-2">Real-time Example:</h4>
+                            <div class="p-4 bg-stone-100 rounded-lg border-l-4 border-amber-400">
+                                <p class="text-stone-700 italic">${data.example}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        const ctx = document.getElementById('efficiencyChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['ASN Based (High Efficiency)', 'PO Based (Medium Efficiency)', 'Blind Receipt (Low Efficiency)'],
+                datasets: [{
+                    label: 'Efficiency',
+                    data: [60, 30, 10],
+                    backgroundColor: [
+                        'rgba(34, 197, 94, 0.7)',  // Green 500
+                        'rgba(245, 158, 11, 0.7)', // Amber 500
+                        'rgba(239, 68, 68, 0.7)'   // Red 500
+                    ],
+                    borderColor: [
+                        'rgba(22, 163, 74, 1)',
+                        'rgba(217, 119, 6, 1)',
+                        'rgba(220, 38, 38, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                         labels: {
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#292524',
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 12 },
+                        padding: 12,
+                        cornerRadius: 4,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += 'Provides ' + context.parsed + '% of required data upfront.';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+    </script>
+
+</body>
+</html>
